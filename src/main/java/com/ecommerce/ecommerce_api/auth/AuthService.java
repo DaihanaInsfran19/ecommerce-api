@@ -1,6 +1,9 @@
 package com.ecommerce.ecommerce_api.auth;
 
+import com.ecommerce.ecommerce_api.security.JwtService;
 import com.ecommerce.ecommerce_api.user.*;
+import org.springframework.security.authentication.*;
+import org.springframework.security.core.userdetails.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -10,11 +13,22 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
 
-    public AuthService(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository,
+                       RoleRepository roleRepository,
+                       PasswordEncoder passwordEncoder,
+                       AuthenticationManager authenticationManager,
+                       JwtService jwtService,
+                       UserDetailsService userDetailsService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
     }
 
     public void register(RegisterRequest req) {
@@ -25,7 +39,7 @@ public class AuthService {
         Role customer = roleRepository.findByName("CUSTOMER")
                 .orElseGet(() -> roleRepository.save(new Role("CUSTOMER")));
 
-        User u = new User();
+        com.ecommerce.ecommerce_api.user.User u = new com.ecommerce.ecommerce_api.user.User();
         u.setEmail(req.getEmail());
         u.setPassword(passwordEncoder.encode(req.getPassword()));
         u.getRoles().add(customer);
@@ -33,14 +47,14 @@ public class AuthService {
         userRepository.save(u);
     }
 
-    public void login(LoginRequest req) {
-        User u = userRepository.findByEmail(req.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+    public AuthResponse login(LoginRequest req) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword())
+        );
 
-        if (!passwordEncoder.matches(req.getPassword(), u.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
-        }
-        // Por ahora no devolvemos JWT, solo confirmamos OK.
-        // JWT viene en la siguiente parte.
+        UserDetails userDetails = userDetailsService.loadUserByUsername(req.getEmail());
+        String token = jwtService.generateToken(userDetails);
+
+        return new AuthResponse(token);
     }
 }

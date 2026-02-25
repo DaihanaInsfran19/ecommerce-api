@@ -1,7 +1,10 @@
 package com.ecommerce.ecommerce_api.auth;
 
 import jakarta.validation.Valid;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -19,7 +22,15 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public void login(@Valid @RequestBody LoginRequest req) {
-        authService.login(req);
+    public AuthResponse login(@Valid @RequestBody LoginRequest req) {
+        return authService.login(req);
+    }
+
+    @GetMapping("/me")
+    public Map<String, Object> me(Authentication authentication) {
+        return Map.of(
+                "email", authentication.getName(),
+                "authorities", authentication.getAuthorities()
+        );
     }
 }
